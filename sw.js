@@ -1,10 +1,15 @@
-const CACHE = 'nota-v1';
+const CACHE = 'nota-v2';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './audio.js',
+  './music.js',
   './pitch.js',
+  './roll.js',
+  './settings.js',
+  './tracker.js',
   './manifest.webmanifest',
   './icons/favicon.svg',
   './icons/icon-192.png',

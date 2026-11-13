@@ -19,30 +19,27 @@
 </head>
 <body>
   <div class="app">
-    <header class="bar">
+    <header class="top" id="top" data-state="idle">
       <div class="brand">
         <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#18222f"/><path d="M6 21c3.5 0 4-9 7.5-9s4 8 6.5 8 3.2-5 6-5" stroke="#34d399" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
         Нота
       </div>
-      <div class="spacer"></div>
+      <div class="now">
+        <div class="note" id="note"><span id="noteName">—</span><span id="noteOct" class="oct"></span></div>
+        <div class="info">
+          <div class="cents" id="cents"></div>
+          <div class="status" id="status">Включи микрофон</div>
+          <div class="hz" id="hz"></div>
+        </div>
+      </div>
       <div class="chip" id="targetChip" hidden>
         <span>Цель</span><b id="targetName"></b>
         <button type="button" id="targetPlay" aria-label="Сыграть цель"><svg class="i" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg></button>
         <button type="button" id="targetClear" aria-label="Убрать цель"><svg class="i" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
       </div>
-      <button type="button" class="icon-btn" id="openSettings" aria-label="Настройки">
+      <button type="button" class="icon-btn gear" id="openSettings" aria-label="Настройки">
         <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
-    </header>
-
-    <section class="readout" id="readout" data-state="idle">
-      <div class="note-line">
-        <div class="note"><span id="noteName">—</span><span id="noteOct" class="oct"></span></div>
-        <div class="side">
-          <div class="cents" id="cents"></div>
-          <div class="hz" id="hz"></div>
-        </div>
-      </div>
       <div class="meter" aria-hidden="true">
         <div class="meter-track">
           <div class="meter-zone" id="meterZone"></div>
@@ -51,20 +48,17 @@
         </div>
         <div class="meter-scale"><span>−50¢ ниже</span><span>0</span><span>выше +50¢</span></div>
       </div>
-      <div class="status-line">
-        <div class="status" id="status">Включи микрофон</div>
-        <div class="hold" id="hold"></div>
-      </div>
-    </section>
+    </header>
 
     <main class="stage">
       <canvas id="roll"></canvas>
+      <div class="hold" id="hold"></div>
       <div class="overlay" id="overlay">
         <button type="button" class="primary" id="startBtn">
           <svg class="i" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
           <span id="startLabel">Включить микрофон</span>
         </button>
-        <p id="overlayMsg">Пой, и «Нота» покажет, в какую ноту ты попадаешь. Тапни клавишу слева: нота прозвучит и станет целью.</p>
+        <p id="overlayMsg">Пой, и «Нота» покажет, в какую ноту ты попадаешь. Тапни ноту слева: она прозвучит и станет целью.</p>
       </div>
     </main>
 
@@ -74,9 +68,10 @@
         <svg class="i on-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>
       </button>
       <button type="button" class="dock-btn drone" id="droneBtn">
-        <span class="dot"></span><span id="droneLabel">Бурдон</span><small id="droneState">выкл</small>
+        <span class="dot"></span>
+        <span class="two"><b>Фоновая нота</b><small id="droneState">выкл</small></span>
       </button>
-      <button type="button" class="dock-btn tune" id="openDrone" aria-label="Настройки бурдона">
+      <button type="button" class="dock-btn tune" id="openDrone" aria-label="Настройки фоновой ноты">
         <svg class="i" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
       </button>
     </footer>
@@ -84,18 +79,18 @@
 
   <div class="backdrop" id="backdrop"></div>
 
-  <section class="sheet" id="droneSheet" aria-label="Бурдон">
+  <section class="sheet" id="droneSheet" aria-label="Фоновая нота">
     <div class="grab"></div>
     <div class="sheet-head">
-      <h2>Бурдон</h2>
+      <h2>Фоновая нота</h2>
       <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="i" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
     </div>
-    <p class="hint">Тянущаяся нота-опора. Пой на её фоне и подстраивайся, пока «волна» не пропадёт. Лучше в наушниках, иначе микрофон слышит бурдон вместо голоса.</p>
+    <p class="hint">Одна нота, которая звучит без остановки, пока ты поёшь. Пой её же, потом другие ноты на её фоне: когда попадаешь, голос сливается с ней, а когда мимо, слышна «волна». Лучше в наушниках, иначе микрофон слышит её вместо голоса.</p>
     <div class="notes" id="droneNotes"></div>
     <div class="row"><span>Октава</span><div class="seg" id="segDroneOct"></div></div>
     <div class="row"><span>Квинта</span><div class="seg" id="segDroneFifth"></div></div>
-    <div class="row"><span>Громкость</span><input type="range" id="droneVol" min="0" max="1" step="0.01" aria-label="Громкость бурдона"></div>
-    <button type="button" class="primary wide" id="droneToggle">Включить бурдон</button>
+    <div class="row"><span>Громкость</span><input type="range" id="droneVol" min="0" max="1" step="0.01" aria-label="Громкость фоновой ноты"></div>
+    <button type="button" class="primary wide" id="droneToggle">Включить фоновую ноту</button>
   </section>
 
   <section class="sheet" id="settingsSheet" aria-label="Настройки">
@@ -104,10 +99,12 @@
       <h2>Настройки</h2>
       <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="i" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
     </div>
+    <div class="row"><span>Дорожки</span><div class="seg" id="segFold"></div></div>
+    <div class="row"><span>Шапка</span><div class="seg" id="segCompact"></div></div>
     <div class="row"><span>Названия</span><div class="seg" id="segNames"></div></div>
     <div class="row"><span>Знаки</span><div class="seg" id="segAcc"></div></div>
     <div class="row"><span>Точность</span><div class="seg" id="segTol"></div></div>
-    <div class="row"><span>Масштаб</span><div class="seg" id="segSpan"></div></div>
+    <div class="row" id="rowSpan"><span>Масштаб</span><div class="seg" id="segSpan"></div></div>
     <div class="row"><span>Окно</span><div class="seg" id="segWin"></div></div>
     <div class="row"><span>Микрофон</span><div class="seg" id="segSens"></div></div>
     <div class="row"><span>Строй A4</span>
@@ -117,12 +114,12 @@
         <button type="button" id="a4Plus" aria-label="Выше">+</button>
       </div>
     </div>
-    <p class="hint small">«Точность» — сколько центов считается попаданием. «Микрофон» — чувствительность: если ловит шум, поставь ниже; если не слышит тихое пение, выше.</p>
+    <p class="hint small">«До–До» — 13 нот на одном экране, октава не важна: попадание засчитывается в любой. «С октавами» — дорожки как на клавиатуре. «Точность» — сколько центов считается попаданием. «Микрофон» — чувствительность: если ловит шум, поставь ниже; если не слышит тихое пение, выше.</p>
     <div class="install" id="installBox" hidden>
       <p id="installHint"></p>
       <button type="button" class="primary wide" id="installBtn" hidden>Установить на телефон</button>
     </div>
-    <p class="ver">Нота · v1.0</p>
+    <p class="ver">Нота · v1.1</p>
   </section>
 </body>
 </html>

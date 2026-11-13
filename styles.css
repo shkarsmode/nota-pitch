@@ -11,7 +11,6 @@
   --bad: #f87171;
   --ref: #60a5fa;
   --accent: #a78bfa;
-  --state: var(--muted);
 }
 
 * { box-sizing: border-box; }
@@ -56,7 +55,7 @@ svg.i {
 .app {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   width: 100%;
   height: 100vh;
   height: 100dvh;
@@ -65,16 +64,24 @@ svg.i {
 
 .app > * { min-width: 0; }
 
-.bar {
-  display: flex;
+.top {
+  --state: var(--muted);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "now chip gear" "meter meter meter";
   align-items: center;
-  gap: 8px;
-  min-height: 52px;
-  padding: calc(6px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 2px max(14px, env(safe-area-inset-left));
+  column-gap: 8px;
+  padding: calc(6px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 9px max(14px, env(safe-area-inset-left));
 }
 
+.top[data-state="good"] { --state: var(--good); }
+.top[data-state="warn"] { --state: var(--warn); }
+.top[data-state="bad"] { --state: var(--bad); }
+.top[data-state="ref"] { --state: var(--ref); }
+
 .brand {
-  display: flex;
+  display: none;
+  grid-area: brand;
   align-items: center;
   gap: 8px;
   font-size: 18px;
@@ -83,79 +90,29 @@ svg.i {
 
 .brand svg { width: 26px; height: 26px; }
 
-.spacer { flex: 1; }
-
-.chip {
+.now {
+  grid-area: now;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 3px 3px 12px;
-  border: 1px solid rgba(167, 139, 250, 0.55);
-  border-radius: 999px;
-  background: rgba(167, 139, 250, 0.15);
-  font-size: 15px;
-}
-
-.chip > span { color: #c9bdfb; }
-
-@media (max-width: 380px) {
-  .chip > span { display: none; }
-}
-.chip b { font-weight: 800; margin-right: 2px; }
-
-.chip button {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.chip svg.i { width: 18px; height: 18px; }
-
-.icon-btn {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-}
-
-.readout {
-  padding: 2px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
-}
-
-.readout[data-state="good"] { --state: var(--good); }
-.readout[data-state="warn"] { --state: var(--warn); }
-.readout[data-state="bad"] { --state: var(--bad); }
-.readout[data-state="ref"] { --state: var(--ref); }
-
-.note-line {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
   gap: 12px;
+  min-width: 0;
+  min-height: 50px;
 }
 
 .note {
-  min-width: 0;
+  flex: none;
+  min-width: 34px;
   color: var(--state);
-  font-size: clamp(60px, 19vw, 92px);
+  font-size: 46px;
   font-weight: 800;
-  line-height: 0.95;
+  line-height: 1;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
 
-.note[data-long] { font-size: clamp(44px, 13.5vw, 70px); }
+.note[data-long] { font-size: 32px; }
 
-.readout[data-state="idle"] .note { color: #364355; }
+.top[data-state="idle"] .note { color: #364355; }
 
 .note .oct {
   margin-left: 2px;
@@ -176,33 +133,105 @@ svg.i {
   vertical-align: 0.62em;
 }
 
-.side {
-  flex: none;
-  padding-bottom: 6px;
-  text-align: right;
+.info {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .cents {
-  min-height: 1.15em;
+  min-height: 22px;
+  overflow: hidden;
   color: var(--state);
-  font-size: 32px;
+  font-size: 19px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  line-height: 22px;
+  white-space: nowrap;
 }
 
-.hz {
-  min-height: 1.3em;
-  color: var(--muted);
+.status {
+  overflow: hidden;
+  color: var(--state);
   font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top[data-state="idle"] .status { color: var(--muted); }
+
+.hz {
+  display: none;
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
-.meter { margin-top: 12px; }
+.chip {
+  grid-area: chip;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 3px 3px 12px;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.15);
+  font-size: 15px;
+}
+
+.chip > span { color: #c9bdfb; }
+.chip b { margin-right: 2px; font-weight: 800; }
+
+.chip button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.chip svg.i { width: 18px; height: 18px; }
+
+@media (max-width: 430px) {
+  .chip > span { display: none; }
+}
+
+@media (max-width: 350px) {
+  .chip { gap: 4px; padding-left: 10px; }
+  .chip button { width: 30px; height: 30px; }
+  .now { gap: 8px; }
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.gear { grid-area: gear; }
+
+.meter {
+  grid-area: meter;
+  margin-top: 7px;
+}
 
 .meter-track {
   position: relative;
-  height: 16px;
-  border-radius: 8px;
+  height: 8px;
+  border-radius: 4px;
   background: var(--panel-2);
 }
 
@@ -210,14 +239,14 @@ svg.i {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 8px;
-  background: rgba(52, 211, 153, 0.22);
+  border-radius: 4px;
+  background: rgba(52, 211, 153, 0.24);
 }
 
 .meter-mid {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
+  top: -3px;
+  bottom: -3px;
   left: 50%;
   width: 2px;
   margin-left: -1px;
@@ -226,66 +255,74 @@ svg.i {
 
 .meter-needle {
   position: absolute;
-  top: -6px;
+  top: -5px;
   left: 50%;
-  width: 8px;
-  height: 28px;
-  margin-left: -4px;
-  border-radius: 4px;
+  width: 6px;
+  height: 18px;
+  margin-left: -3px;
+  border-radius: 3px;
   background: var(--state);
-  box-shadow: 0 0 12px var(--state);
+  box-shadow: 0 0 10px var(--state);
 }
 
-.readout[data-state="idle"] .meter-needle { opacity: 0; }
+.top[data-state="idle"] .meter-needle { opacity: 0; }
 
 .meter-scale {
-  display: flex;
+  display: none;
   justify-content: space-between;
   margin-top: 6px;
   color: var(--muted);
   font-size: 11px;
 }
 
-.status-line {
-  display: flex;
-  align-items: center;
+.top.big {
+  grid-template-areas: "brand chip gear" "now now now" "meter meter meter";
+  row-gap: 4px;
+  padding-bottom: 12px;
+}
+
+.top.big .brand { display: flex; }
+
+.top.big .now {
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 10px;
-  min-height: 36px;
-  margin-top: 8px;
 }
 
-.status {
+.top.big .note {
+  font-size: clamp(60px, 19vw, 92px);
+  line-height: 0.95;
+}
+
+.top.big .note[data-long] { font-size: clamp(44px, 13.5vw, 70px); }
+
+.top.big .info {
   flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  background: color-mix(in srgb, var(--state) 18%, transparent);
-  color: var(--state);
-  font-size: 17px;
-  font-weight: 800;
-  white-space: nowrap;
+  align-items: flex-end;
+  padding-bottom: 4px;
 }
 
-.readout[data-state="idle"] .status {
-  background: var(--panel);
-  color: var(--muted);
+.top.big .cents {
+  min-height: 36px;
+  font-size: 32px;
+  line-height: 36px;
 }
 
-.hold {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.top.big .status { font-size: 16px; line-height: 22px; }
+.top.big .hz { display: block; }
+.top.big .meter { margin-top: 10px; }
+.top.big .meter-track { height: 16px; border-radius: 8px; }
+.top.big .meter-zone { border-radius: 8px; }
+.top.big .meter-mid { top: -4px; bottom: -4px; }
+
+.top.big .meter-needle {
+  top: -6px;
+  width: 8px;
+  height: 28px;
+  margin-left: -4px;
+  border-radius: 4px;
 }
+
+.top.big .meter-scale { display: flex; }
 
 .stage {
   position: relative;
@@ -302,6 +339,21 @@ svg.i {
   height: 100%;
   touch-action: none;
 }
+
+.hold {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(11, 15, 20, 0.78);
+  color: #b4c0d2;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.hold:empty { display: none; }
 
 .overlay {
   position: absolute;
@@ -354,7 +406,7 @@ svg.i {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   height: 56px;
   padding: 0 14px;
   overflow: hidden;
@@ -406,22 +458,25 @@ svg.i {
   background: #3a475a;
 }
 
-#droneLabel {
+.two {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.two b {
+  font-size: 15px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
-.dock-btn.drone small {
-  margin-left: auto;
+.two small {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 600;
-}
-
-@media (max-width: 340px) {
-  .dock-btn.drone small { display: none; }
+  white-space: nowrap;
 }
 
 .dock-btn.drone.on {
