@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Нота">
-  <meta name="description" content="Тренажёр интонации: показывает, какую ноту ты поёшь и насколько точно.">
+  <meta name="description" content="Тренажёр интонации: показывает, какую ноту ты поёшь, и каждый день тренирует попадание.">
   <title>Нота — тренажёр интонации</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
@@ -18,8 +18,8 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-  <div class="app">
-    <header class="top" id="top" data-state="idle">
+  <div class="app" id="app">
+    <header class="top" id="top" data-state="idle" data-show="free loop">
       <div class="brand">
         <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#18222f"/><path d="M6 21c3.5 0 4-9 7.5-9s4 8 6.5 8 3.2-5 6-5" stroke="#34d399" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
         Нота
@@ -50,19 +50,31 @@
       </div>
     </header>
 
-    <main class="stage">
+    <header class="ttop" id="trainTop" data-state="idle" data-show="train-run" hidden>
+      <div class="ttop-row">
+        <div class="tstep" id="tStep"></div>
+        <button type="button" class="icon-btn small" id="trainExit" aria-label="Закончить"><svg class="i" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+      </div>
+      <div class="tprompt" id="tPrompt"></div>
+      <div class="tsub" id="tSub"></div>
+      <div class="tbar"><div class="tfill" id="tFill"></div></div>
+      <div class="tdots" id="tDots"></div>
+    </header>
+
+    <main class="stage" id="stage" data-show="free loop train-run">
       <canvas id="roll"></canvas>
       <div class="hold" id="hold"></div>
       <div class="overlay" id="overlay">
-        <button type="button" class="primary" id="startBtn">
-          <svg class="i" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-          <span id="startLabel">Включить микрофон</span>
-        </button>
-        <p id="overlayMsg">Пой, и «Нота» покажет, в какую ноту ты попадаешь. Тапни ноту слева: она прозвучит и станет целью.</p>
+        <h3 id="ovTitle"></h3>
+        <p id="ovMsg"></p>
+        <button type="button" class="primary" id="ovBtn"><span id="ovIcon"></span><span id="ovLabel"></span></button>
+        <button type="button" class="ghost" id="ovAlt"></button>
       </div>
     </main>
 
-    <footer class="dock">
+    <main class="page" id="trainHome" data-show="train-home" hidden></main>
+
+    <footer class="dock" id="dockFree" data-show="free">
       <button type="button" class="dock-btn mic" id="micBtn" aria-label="Включить микрофон">
         <svg class="i on-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
         <svg class="i on-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>
@@ -75,6 +87,52 @@
         <svg class="i" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
       </button>
     </footer>
+
+    <footer class="dock" id="dockRec" data-show="loop-rec" hidden>
+      <button type="button" class="dock-btn stop" id="recStop">
+        <svg class="i" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor" stroke="none"/></svg>
+        Готово
+      </button>
+      <button type="button" class="dock-btn tune" id="recCancel" aria-label="Отменить запись"><svg class="i" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+    </footer>
+
+    <footer class="dock" id="dockLoop" data-show="loop-play" hidden>
+      <button type="button" class="dock-btn mic" id="loopPlay" aria-label="Пауза">
+        <svg class="i on-mic" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg>
+        <svg class="i on-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>
+      </button>
+      <button type="button" class="dock-btn opt" id="loopSound"><span class="two"><b>Звук</b><small id="loopSoundState">выкл</small></span></button>
+      <button type="button" class="dock-btn opt" id="loopTempo"><span class="two"><b>Темп</b><small id="loopTempoState">100%</small></span></button>
+      <button type="button" class="dock-btn tune" id="loopMenu" aria-label="Мои мелодии">
+        <svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </footer>
+
+    <footer class="dock" id="dockTrain" data-show="train-run" hidden>
+      <button type="button" class="dock-btn opt" id="trainReplay">
+        <svg class="i" viewBox="0 0 24 24"><path d="M11 5L6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        Ещё раз
+      </button>
+      <button type="button" class="dock-btn opt" id="trainSkip">
+        Пропустить
+        <svg class="i" viewBox="0 0 24 24"><path d="M6 6l7 6-7 6zM17 6v12"/></svg>
+      </button>
+    </footer>
+
+    <nav class="tabs" id="tabs">
+      <button type="button" data-tab="free" class="on">
+        <svg class="i" viewBox="0 0 24 24"><path d="M3 12c2.5 0 2.5-6 5-6s2.5 12 5 12 2.5-9 4.5-9S19 12 21 12"/></svg>
+        Голос
+      </button>
+      <button type="button" data-tab="loop">
+        <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/></svg>
+        Запись
+      </button>
+      <button type="button" data-tab="train">
+        <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+        Тренировка
+      </button>
+    </nav>
   </div>
 
   <div class="backdrop" id="backdrop"></div>
@@ -91,6 +149,16 @@
     <div class="row"><span>Квинта</span><div class="seg" id="segDroneFifth"></div></div>
     <div class="row"><span>Громкость</span><input type="range" id="droneVol" min="0" max="1" step="0.01" aria-label="Громкость фоновой ноты"></div>
     <button type="button" class="primary wide" id="droneToggle">Включить фоновую ноту</button>
+  </section>
+
+  <section class="sheet" id="loopSheet" aria-label="Мои мелодии">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2>Мои мелодии</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="i" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+    </div>
+    <div class="list" id="loopList"></div>
+    <button type="button" class="primary wide" id="loopNew">Записать новую</button>
   </section>
 
   <section class="sheet" id="settingsSheet" aria-label="Настройки">
@@ -114,12 +182,12 @@
         <button type="button" id="a4Plus" aria-label="Выше">+</button>
       </div>
     </div>
-    <p class="hint small">«До–До» — 13 нот на одном экране, октава не важна: попадание засчитывается в любой. «С октавами» — дорожки как на клавиатуре. «Точность» — сколько центов считается попаданием. «Микрофон» — чувствительность: если ловит шум, поставь ниже; если не слышит тихое пение, выше.</p>
+    <p class="hint small">«До–До» — 13 нот на одном экране, октава не важна: попадание засчитывается в любой. «С октавами» — дорожки как на клавиатуре (только во вкладке «Голос»). «Точность» — сколько центов считается попаданием. «Микрофон» — чувствительность: если ловит шум, поставь ниже; если не слышит тихое пение, выше.</p>
     <div class="install" id="installBox" hidden>
       <p id="installHint"></p>
       <button type="button" class="primary wide" id="installBtn" hidden>Установить на телефон</button>
     </div>
-    <p class="ver">Нота · v1.1</p>
+    <p class="ver">Нота · v2.0</p>
   </section>
 </body>
 </html>

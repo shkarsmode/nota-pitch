@@ -28,6 +28,7 @@ const RGB = {
   ref: '96,165,250',
   accent: '167,139,250',
   todo: '167,139,250',
+  miss: '116,131,154',
 };
 
 export function createRoll(canvas) {

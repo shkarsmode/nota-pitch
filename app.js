@@ -1,45 +1,17 @@
 import { BLACK, NAMES, foldDev, foldPos } from './music.js';
 import { settings, saveSettings, OPTIONS, readJSON, writeJSON, nameOf, parts, noteHTML, noteText, grade, decimal } from './settings.js';
-import { audio, ensureCtx, startMic, stopMic, sample, tone, startDrone, stopDrone, setDroneVol, toFreq } from './audio.js';
+import { audio, ensureCtx, startMic, stopMic, sample, tone, stopTones, startDrone, stopDrone, setDroneVol, toFreq } from './audio.js';
 import { createRoll, KEY_W } from './roll.js';
+import { createLoop } from './loop.js';
+import { createTrain } from './train.js';
 
 const $ = (id) => document.getElementById(id);
 
-const voice = {
-  hist: [],
-  smooth: NaN,
-  lastVoiced: 0,
-  prevD: 6,
-  center: Number(readJSON('nota.voice', 55)) || 55,
-  seg: null,
-  lastSeg: null,
+const ICONS = {
+  mic: '<svg class="i" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  rec: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor" stroke="none"/></svg>',
 };
-
-const state = {
-  target: null,
-  refUntil: 0,
-  refNote: null,
-  flash: null,
-  center: 57,
-  centerTarget: 57,
-  suspendedSince: 0,
-};
-
-const roll = createRoll($('roll'));
-const droneMidi = () => 12 * (settings.droneOct + 1) + settings.droneNote;
-const foldBase = () => 12 * Math.round((voice.center - 6) / 12);
-const label = (n) => parts(n, !settings.fold);
-
-function devOf(m) {
-  if (state.target == null) return (m - Math.round(m)) * 100;
-  return (settings.fold ? foldDev(m, state.target) : m - state.target) * 100;
-}
-
-function isReference(now, m) {
-  if (now >= state.refUntil || state.refNote == null) return false;
-  return Math.abs(foldDev(m, state.refNote)) < 0.6;
-}
-
+const MIC_INTRO = 'Пой, и «Нота» покажет, в какую ноту ты попадаешь. Тапни ноту слева: она прозвучит и станет целью.';
 const MIC_ERRORS = {
   NotAllowedError: 'Нет доступа к микрофону. Разреши его для этого сайта в настройках браузера и нажми ещё раз.',
   SecurityError: 'Нет доступа к микрофону. Разреши его для этого сайта в настройках браузера и нажми ещё раз.',
@@ -49,35 +21,109 @@ const MIC_ERRORS = {
   NotSupportedError: 'Этот браузер не даёт доступ к микрофону.',
 };
 
+const voice = {
+  hist: [],
+  smooth: NaN,
+  now: NaN,
+  lastVoiced: 0,
+  prevD: 6,
+  center: Number(readJSON('nota.voice', 55)) || 55,
+  seg: null,
+  lastSeg: null,
+};
+
+const state = {
+  tab: 'free',
+  target: null,
+  refUntil: 0,
+  refNote: null,
+  flash: null,
+  center: 57,
+  centerTarget: 57,
+  micMsg: null,
+  suspendedSince: 0,
+};
+
+const roll = createRoll($('roll'));
+const droneMidi = () => 12 * (settings.droneOct + 1) + settings.droneNote;
+const foldBase = () => 12 * Math.round((voice.center - 6) / 12);
+
+const free = {
+  view: () => 'free',
+  fold: () => settings.fold,
+  target: () => state.target,
+  pill: holdText,
+  keyTap(lane, midi) {
+    setTarget(midi);
+    playKey(midi, lane);
+  },
+  leave() {
+    if (audio.drone) toggleDrone();
+  },
+};
+
+const ctx = {
+  $,
+  voice,
+  state,
+  micOn,
+  micOff,
+  refresh,
+  foldBase,
+  openSheet,
+  closeSheets,
+  markRef(midi, ms) {
+    state.refUntil = performance.now() + ms;
+    state.refNote = midi;
+  },
+};
+
+const modes = { free, loop: createLoop(ctx), train: createTrain(ctx) };
+let mode = free;
+
+const fold = () => (mode.fold ? mode.fold() : true);
+const targetNow = (now, m) => (mode.target ? mode.target(now, m) : null);
+const label = (n) => parts(n, !fold());
+
+function devOf(m, now) {
+  const t = targetNow(now, m);
+  if (t == null) return (m - Math.round(m)) * 100;
+  return (fold() ? foldDev(m, t) : m - t) * 100;
+}
+
+function isReference(now, m) {
+  if (mode.isRef && mode.isRef(now)) return true;
+  if (now >= state.refUntil || state.refNote == null) return false;
+  return Math.abs(foldDev(m, state.refNote)) < 0.6;
+}
+
 async function micOn() {
-  if (audio.running || audio.starting) return;
-  $('startBtn').disabled = true;
-  $('startLabel').textContent = 'Жду доступ…';
+  if (audio.running) return true;
+  if (audio.starting) return false;
+  state.micMsg = null;
+  const pending = startMic(() => micOff('Микрофон отключился. Нажми, чтобы включить снова.'));
+  refresh();
   try {
-    await startMic(() => micOff('Микрофон отключился. Нажми, чтобы включить снова.'));
+    await pending;
     voice.smooth = NaN;
-    $('overlay').hidden = true;
   } catch (err) {
-    showOverlay(MIC_ERRORS[err.name] || 'Не получилось включить микрофон. Попробуй ещё раз.');
+    state.micMsg = MIC_ERRORS[err.name] || 'Не получилось включить микрофон. Попробуй ещё раз.';
   }
-  renderDock();
+  refresh();
+  return audio.running;
 }
 
 function micOff(message) {
   if (!audio.running) return;
   stopMic();
+  stopTones();
   voice.smooth = NaN;
+  voice.now = NaN;
   closeSeg();
   writeJSON('nota.voice', Math.round(voice.center * 10) / 10);
-  showOverlay(message || 'Микрофон на паузе.');
-  renderDock();
-}
-
-function showOverlay(message) {
-  $('overlayMsg').textContent = message;
-  $('startLabel').textContent = 'Включить микрофон';
-  $('startBtn').disabled = false;
-  $('overlay').hidden = false;
+  state.micMsg = message || 'Микрофон на паузе.';
+  if (mode.micLost) mode.micLost();
+  refresh();
 }
 
 function playKey(midi, lane) {
@@ -103,14 +149,18 @@ function accept(now, dt, v) {
   voice.lastVoiced = now;
   voice.center += (v - voice.center) * (1 - Math.exp(-dt / 12000));
   const ref = isReference(now, v);
-  const d = foldPos(v, voice.prevD);
+  const anchor = mode.anchor ? mode.anchor(now) : null;
+  const d = foldPos(v, anchor ?? voice.prevD);
   voice.prevD = d;
-  voice.hist.push({ t: now, m: v, d, g: ref ? 'ref' : grade(devOf(v)) });
+  voice.hist.push({ t: now, m: v, d, g: ref ? 'ref' : grade(devOf(v, now)) });
   if (voice.hist.length > 6000) voice.hist.splice(0, 1500);
   if (Number.isNaN(voice.smooth) || Math.abs(v - voice.smooth) > 0.6) voice.smooth = v;
   else voice.smooth += (v - voice.smooth) * (1 - Math.exp(-dt / 80));
-  if (!ref) track(now, voice.smooth);
-  if (!settings.fold) follow(v);
+  if (mode === free) {
+    if (!ref) track(now, voice.smooth);
+    if (!settings.fold) follow(v);
+  }
+  if (mode.voiced) mode.voiced(now, v, dt);
 }
 
 function idle(now) {
@@ -118,10 +168,11 @@ function idle(now) {
   if (now - voice.lastVoiced > 90 && h.length && !Number.isNaN(h[h.length - 1].m)) h.push({ t: now, m: NaN });
   if (now - voice.lastVoiced > 220) voice.smooth = NaN;
   if (voice.seg && now - voice.seg.last > 250) closeSeg();
+  if (mode.idle) mode.idle(now);
 }
 
 function track(now, m) {
-  const dev = devOf(m);
+  const dev = devOf(m, now);
   const onTarget = state.target != null && Math.abs(dev) < 50;
   const note = onTarget ? state.target : Math.round(m);
   let s = voice.seg;
@@ -148,11 +199,26 @@ function follow(m) {
   else if (m < c - half + edge) state.centerTarget = m + half - edge;
 }
 
+function holdText(now) {
+  const withOct = !settings.fold;
+  const s = voice.seg;
+  const counts = (x) => x.tgt == null || x.onTarget;
+  const pct = (x) => Math.round((100 * x.good) / x.frames);
+  if (audio.running && s && counts(s) && now - s.last < 250 && s.last - s.start >= 400) {
+    return `Держишь ${decimal((s.last - s.start) / 1000)} с · ${pct(s)}% точно`;
+  }
+  if (voice.lastSeg && counts(voice.lastSeg) && now - voice.lastSeg.at < 5000) {
+    const L = voice.lastSeg;
+    return `${noteText(L.note, withOct)}: ${decimal((L.last - L.start) / 1000)} с · ${pct(L)}% точно`;
+  }
+  return '';
+}
+
 function scene(now) {
   const voiced = !Number.isNaN(voice.smooth);
-  return {
+  const s = {
     now,
-    fold: settings.fold,
+    fold: fold(),
     span: settings.span,
     center: state.center,
     winMs: settings.win * 1000,
@@ -162,18 +228,21 @@ function scene(now) {
       ? {
           m: voice.smooth,
           d: foldPos(voice.smooth, voice.prevD),
-          g: isReference(now, voice.smooth) ? 'ref' : grade(devOf(voice.smooth)),
+          g: isReference(now, voice.smooth) ? 'ref' : grade(devOf(voice.smooth, now)),
         }
       : null,
-    target: state.target,
+    target: targetNow(now, voice.smooth),
     flash: state.flash,
     dronePc: audio.drone ? settings.droneNote : null,
     label,
   };
+  if (mode.scene) mode.scene(s, now);
+  return s;
 }
 
 const els = {
   top: $('top'),
+  stage: $('stage'),
   note: $('note'),
   name: $('noteName'),
   oct: $('noteOct'),
@@ -195,9 +264,10 @@ function put(key, el, value) {
 
 function readout(now) {
   const voiced = !Number.isNaN(voice.smooth);
-  const hasTarget = state.target != null;
-  const withOct = !settings.fold;
-  let mode = 'idle';
+  const target = targetNow(now, voice.smooth);
+  const hasTarget = target != null;
+  const withOct = !fold();
+  let st = 'idle';
   let status;
   let name = '—';
   let nameHTML = '—';
@@ -207,13 +277,13 @@ function readout(now) {
   let pos = 50;
 
   if (!audio.running) {
-    status = 'Включи микрофон';
+    status = 'Микрофон выключен';
   } else if (!voiced) {
-    status = hasTarget ? `Спой ${noteText(state.target, withOct)}` : 'Спой ноту';
+    status = hasTarget ? `Спой ${noteText(target, withOct)}` : 'Спой ноту';
   } else {
     const m = voice.smooth;
     const n = Math.round(m);
-    const dev = devOf(m);
+    const dev = devOf(m, now);
     const r = Math.round(dev);
     name = nameOf(n);
     nameHTML = noteHTML(n, false);
@@ -222,30 +292,19 @@ function readout(now) {
     hz = `${decimal(toFreq(m))} Гц`;
     pos = 50 + Math.max(-50, Math.min(50, dev));
     if (isReference(now, m)) {
-      mode = 'ref';
+      st = 'ref';
       status = 'Звучит эталон';
     } else {
-      mode = grade(dev);
+      st = grade(dev);
       if (Math.abs(dev) <= settings.tol) status = hasTarget ? 'Попал в цель ✓' : 'В ноте ✓';
       else if (hasTarget && Math.abs(dev) >= 50) status = dev < 0 ? 'Ниже цели ↑' : 'Выше цели ↓';
       else status = dev < 0 ? 'Занижаешь ↑' : 'Завышаешь ↓';
     }
   }
 
-  let hold = '';
-  const s = voice.seg;
-  const counts = (x) => x.tgt == null || x.onTarget;
-  const pct = (x) => Math.round((100 * x.good) / x.frames);
-  if (audio.running && s && counts(s) && now - s.last < 250 && s.last - s.start >= 400) {
-    hold = `Держишь ${decimal((s.last - s.start) / 1000)} с · ${pct(s)}% точно`;
-  } else if (voice.lastSeg && counts(voice.lastSeg) && now - voice.lastSeg.at < 5000) {
-    const L = voice.lastSeg;
-    hold = `${noteText(L.note, withOct)}: ${decimal((L.last - L.start) / 1000)} с · ${pct(L)}% точно`;
-  }
-
-  if (shown.mode !== mode) {
-    shown.mode = mode;
-    els.top.dataset.state = mode;
+  if (shown.st !== st) {
+    shown.st = st;
+    els.top.dataset.state = st;
   }
   if (shown.name !== nameHTML) {
     shown.name = nameHTML;
@@ -256,7 +315,6 @@ function readout(now) {
   put('cents', els.cents, cents);
   put('hz', els.hz, hz);
   put('status', els.status, status);
-  put('hold', els.hold, hold);
   const p = pos.toFixed(1);
   if (shown.pos !== p) {
     shown.pos = p;
@@ -267,6 +325,64 @@ function readout(now) {
     shown.lvl = lvl;
     els.mic.style.setProperty('--lvl', lvl);
   }
+}
+
+let ov = null;
+
+function renderOverlay() {
+  let spec = mode.overlay ? mode.overlay() : null;
+  const needMic = mode.needsMic ? mode.needsMic() : true;
+  if (!spec && needMic && !audio.running) {
+    spec = {
+      msg: state.micMsg || MIC_INTRO,
+      btn: audio.starting ? 'Жду доступ…' : 'Включить микрофон',
+      icon: 'mic',
+      busy: audio.starting,
+      onBtn: micOn,
+    };
+  }
+  ov = spec;
+  $('overlay').hidden = !spec;
+  if (!spec) return;
+  $('ovTitle').textContent = spec.title || '';
+  $('ovTitle').hidden = !spec.title;
+  $('ovMsg').textContent = spec.msg || '';
+  $('ovMsg').hidden = !spec.msg;
+  $('ovLabel').textContent = spec.btn;
+  $('ovIcon').innerHTML = ICONS[spec.icon] || '';
+  $('ovBtn').disabled = !!spec.busy;
+  $('ovBtn').classList.toggle('rec', spec.icon === 'rec');
+  $('ovAlt').textContent = spec.alt || '';
+  $('ovAlt').hidden = !spec.alt;
+}
+
+function refresh() {
+  const view = mode.view();
+  for (const el of document.querySelectorAll('[data-show]')) {
+    el.hidden = !el.dataset.show.split(' ').some((t) => view === t || view.startsWith(`${t}-`));
+  }
+  const focus = !!(mode.focus && mode.focus());
+  $('tabs').hidden = focus;
+  $('app').classList.toggle('focus', focus);
+  renderOverlay();
+  renderDock();
+  renderTarget();
+  if (mode.render) mode.render();
+  roll.resize();
+}
+
+function setTab(name) {
+  if (state.tab === name || !modes[name]) return;
+  if (mode.leave) mode.leave();
+  stopTones();
+  state.tab = name;
+  mode = modes[name];
+  for (const b of $('tabs').children) b.classList.toggle('on', b.dataset.tab === name);
+  closeSeg();
+  voice.lastSeg = null;
+  voice.hist.length = 0;
+  if (mode.enter) mode.enter();
+  refresh();
 }
 
 function renderZone() {
@@ -283,13 +399,15 @@ function renderDock() {
 }
 
 function renderTarget() {
-  $('targetChip').hidden = state.target == null;
-  if (state.target != null) $('targetName').innerHTML = noteHTML(state.target, !settings.fold);
+  const on = mode === free && state.target != null;
+  $('targetChip').hidden = !on;
+  if (on) $('targetName').innerHTML = noteHTML(state.target, !settings.fold);
 }
 
 function renderLayout() {
   els.top.classList.toggle('big', !settings.compact);
   $('rowSpan').hidden = settings.fold;
+  roll.resize();
 }
 
 function toggleDrone() {
@@ -368,12 +486,13 @@ function renderInstall() {
   $('installHint').textContent = installEvent
     ? 'Поставь «Ноту» на экран телефона: откроется как приложение и будет работать без интернета.'
     : ios
-      ? 'Чтобы поставить на iPhone: в Safari нажми «Поделиться» → «На экран „Домой“».'
+      ? 'Чтобы поставить на iPhone: в Safari нажми «Поделиться» → «На экран „Домой“». Прогресс тренировок хранится на этом устройстве, так что лучше поставить сразу.'
       : 'Чтобы поставить на телефон: в меню браузера выбери «Установить приложение» или «Добавить на главный экран».';
 }
 
 function bind() {
-  $('startBtn').addEventListener('click', micOn);
+  $('ovBtn').addEventListener('click', () => ov && ov.onBtn && ov.onBtn());
+  $('ovAlt').addEventListener('click', () => ov && ov.onAlt && ov.onAlt());
   els.mic.addEventListener('click', () => (audio.running ? micOff() : micOn()));
   $('droneBtn').addEventListener('click', toggleDrone);
   $('droneToggle').addEventListener('click', toggleDrone);
@@ -384,6 +503,8 @@ function bind() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSheets();
   });
+  for (const b of $('tabs').children) b.addEventListener('click', () => setTab(b.dataset.tab));
+
   $('targetPlay').addEventListener('click', () => {
     if (state.target == null) return;
     playKey(state.target, settings.fold ? state.target - foldBase() : state.target);
@@ -396,18 +517,17 @@ function bind() {
 
   $('roll').addEventListener('pointerdown', (e) => {
     const r = $('roll').getBoundingClientRect();
-    if (e.clientX - r.left > KEY_W + 8) return;
+    if (e.clientX - r.left > KEY_W + 8 || !mode.keyTap) return;
     ensureCtx();
     const lane = roll.laneAt(e.clientY - r.top, scene(performance.now()));
-    const midi = settings.fold ? foldBase() + lane : lane;
-    setTarget(midi);
-    playKey(midi, lane);
+    mode.keyTap(lane, fold() ? foldBase() + lane : lane);
   });
 
   const relabel = () => {
     buildDroneNotes();
     renderDock();
     renderTarget();
+    if (mode.relabel) mode.relabel();
   };
   buildSeg($('segFold'), 'fold', () => {
     renderLayout();
@@ -487,26 +607,28 @@ let prevT = performance.now();
 
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(100, Math.max(0, now - prevT));
+  const elapsed = Math.max(0, now - prevT);
+  const dt = Math.min(100, elapsed);
   prevT = now;
-  if (audio.running) {
-    const v = sample(now);
-    if (Number.isNaN(v)) idle(now);
-    else accept(now, dt, v);
+  const v = audio.running ? sample(now) : NaN;
+  voice.now = v;
+  if (Number.isNaN(v)) idle(now);
+  else accept(now, dt, v);
+  if (mode.tick) mode.tick(now, Math.min(1000, elapsed));
+  if (!els.stage.hidden) {
+    state.center += (state.centerTarget - state.center) * (1 - Math.exp(-dt / 200));
+    roll.draw(scene(now));
+    put('hold', els.hold, mode.pill ? mode.pill(now) : '');
   }
-  state.center += (state.centerTarget - state.center) * (1 - Math.exp(-dt / 200));
-  roll.draw(scene(now));
-  readout(now);
+  if (!els.top.hidden) readout(now);
 }
 
 bind();
 renderLayout();
 renderZone();
-renderDock();
-renderTarget();
 renderA4();
 renderInstall();
-roll.resize();
+refresh();
 requestAnimationFrame(frame);
 
 if ('serviceWorker' in navigator) {
