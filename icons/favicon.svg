@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2535"/><stop offset="1" stop-color="#0b0f14"/></linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+  </defs>
+  <clipPath id="c"><rect width="512" height="512" rx="116"/></clipPath><rect width="512" height="512" rx="116" fill="url(#bg)"/><g clip-path="url(#c)">
+  <g>
+    <rect x="0" y="160" width="512" height="48" fill="#ffffff" opacity="0.045"/>
+    <rect x="0" y="256" width="512" height="48" fill="#ffffff" opacity="0.045"/>
+    <rect x="0" y="352" width="512" height="48" fill="#ffffff" opacity="0.045"/>
+    <rect x="0" y="183" width="512" height="2" fill="#ffffff" opacity="0.08"/>
+    <rect x="0" y="279" width="512" height="2" fill="#ffffff" opacity="0.08"/>
+    <rect x="0" y="327" width="512" height="2" fill="#ffffff" opacity="0.08"/>
+  </g>
+  <path d="M112 328 C 168 328 178 232 232 232 S 296 304 338 304 S 382 184 402 184" stroke="#34d399" stroke-width="56" fill="none" stroke-linecap="round" opacity="0.28" filter="url(#glow)"/>
+  <path d="M112 328 C 168 328 178 232 232 232 S 296 304 338 304 S 382 184 402 184" stroke="#34d399" stroke-width="28" fill="none" stroke-linecap="round"/>
+  <circle cx="402" cy="184" r="36" fill="#34d399"/>
+  <circle cx="402" cy="184" r="14" fill="#eafff6"/></g></svg>
